@@ -195,10 +195,10 @@ static uint8_t button2;                 // Green
 static uint8_t brakePressed;
 #endif
 
-#if defined(CRUISE_CONTROL_SUPPORT) || (defined(STANDSTILL_HOLD_ENABLE) && (CTRL_TYP_SEL == FOC_CTRL) && (CTRL_MOD_REQ != SPD_MODE))
+//!*! #if defined(CRUISE_CONTROL_SUPPORT) || (defined(STANDSTILL_HOLD_ENABLE) && (CTRL_TYP_SEL == FOC_CTRL) /*&& (CTRL_MOD_REQ != SPD_MODE)*/)
 static uint8_t cruiseCtrlAcv = 0;
 static uint8_t standstillAcv = 0;
-#endif
+//!*! #endif
 
 /* =========================== Retargeting printf =========================== */
 /* retarget the C library printf function to the USART */
@@ -669,7 +669,7 @@ void updateCurSpdLim(void) {
  * Output: standstillAcv
  */
 void standstillHold(void) {
-  #if defined(STANDSTILL_HOLD_ENABLE) && (CTRL_TYP_SEL == FOC_CTRL) && (CTRL_MOD_REQ != SPD_MODE)
+  #if defined(STANDSTILL_HOLD_ENABLE) && (CTRL_TYP_SEL == FOC_CTRL) && (ctrlModReqRaw != SPD_MODE)
     if (!rtP_Left.b_cruiseCtrlEna) {                                  // If Stanstill in NOT Active -> try Activation
       if (((input1[inIdx].cmd > 50 || input2[inIdx].cmd < -50) && speedAvgAbs < 30) // Check if Brake is pressed AND measured speed is small
           || (input2[inIdx].cmd < 20 && speedAvgAbs < 5)) {           // OR Throttle is small AND measured speed is very small
@@ -689,6 +689,40 @@ void standstillHold(void) {
     }
   #endif
 }
+
+//!*!
+void standstillHold2(void) {
+  #if (CTRL_TYP_SEL == FOC_CTRL) 
+    if(ctrlModReqRaw != SPD_MODE)
+    {
+        if(abs(input1[inIdx].cmd) > 50)
+        {
+            rtP_Left.b_cruiseCtrlEna  = 0;
+        }
+        else 
+        {
+            rtP_Left.n_cruiseMotTgt   = 0;
+            rtP_Left.b_cruiseCtrlEna  = 1;
+        }
+
+        if(abs(input2[inIdx].cmd) > 50)
+        {
+            rtP_Right.b_cruiseCtrlEna = 0;
+        }
+        else 
+        {
+            rtP_Right.n_cruiseMotTgt  = 0;
+            rtP_Right.b_cruiseCtrlEna = 1;
+        }
+    }
+    else 
+    {
+        rtP_Left.b_cruiseCtrlEna  = 0;
+        rtP_Right.b_cruiseCtrlEna = 0;
+    }
+  #endif
+}
+
 
  /*
  * Electric Brake Function
@@ -878,6 +912,13 @@ void readInputRaw(void) {
       #else
         input1[inIdx].raw = commandR.steer;
         input2[inIdx].raw = commandR.speed;
+
+        //!*! Control MODE Handling
+        if (commandR.ctrlMod > 0 && commandR.ctrlMod != ctrlModReqRaw && rtP_Right.z_ctrlTypSel == FOC_CTRL) {
+          ctrlModReqRaw = commandR.ctrlMod;
+          beepShortMany(commandR.ctrlMod, 1);
+        }
+
       #endif
     }
     #endif
@@ -1273,7 +1314,7 @@ void usart_process_command(SerialCommand *command_in, SerialCommand *command_out
   #else
   uint16_t checksum;
   if (command_in->start == SERIAL_START_FRAME) {
-    checksum = (uint16_t)(command_in->start ^ command_in->steer ^ command_in->speed);
+    checksum = (uint16_t)(command_in->start ^ command_in->steer ^ command_in->speed ^ command_in->ctrlMod); //!*!
     if (command_in->checksum == checksum) {
       *command_out = *command_in;
       if (usart_idx == 2) {             // Sideboard USART2

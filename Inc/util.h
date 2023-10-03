@@ -39,6 +39,7 @@
       uint16_t  start;
       int16_t   steer;
       int16_t   speed;
+      uint8_t   ctrlMod;  //!*! 
       uint16_t  checksum;
     } SerialCommand;
   #endif
@@ -83,6 +84,7 @@ void calcAvgSpeed(void);
 void adcCalibLim(void);
 void updateCurSpdLim(void);
 void standstillHold(void);
+void standstillHold2(void); //!*!
 void electricBrake(uint16_t speedBlend, uint8_t reverseDir);
 void cruiseControl(uint8_t button);
 int  checkInputType(int16_t min, int16_t mid, int16_t max);
